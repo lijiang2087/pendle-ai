@@ -16,6 +16,10 @@ def get_pt_ausdc_price():
         res.raise_for_status()
         pools = res.json().get("data", [])
 
+        print("🪙 All pool symbols from Pendle:")
+        for pool in pools:
+            print("-", pool.get("symbol"))
+
         for pool in pools:
             project = pool.get("project", "").lower()
             symbol = pool.get("symbol", "").lower()
