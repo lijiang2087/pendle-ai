@@ -15,10 +15,18 @@ def get_pt_ausdc_price():
         res = requests.get(PENDLE_POOL_URL)
         res.raise_for_status()
         pools = res.json().get("data", [])
+
         for pool in pools:
-            if "Pendle" in pool["project"] and "PT-aUSDC" in pool["symbol"]:
+            project = pool.get("project", "").lower()
+            symbol = pool.get("symbol", "").lower()
+            if "pendle" in project and "pt" in symbol and "ausdc" in symbol:
                 return float(pool["underlyingTokens"][0]["price"])
+
+        print("⚠️ PT-aUSDC not found in pool data.")
+        return None
+
     except Exception as e:
+        print(f"❌ Error fetching PT price: {e}")
         return None
 
 # === Email logic ===
