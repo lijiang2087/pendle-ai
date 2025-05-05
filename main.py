@@ -22,6 +22,8 @@ def get_asset_price(chain_id, asset_address):
         response.raise_for_status()
         data = response.json()
 
+        print("Full API response:", data)  # 🔍 Debug print
+
         prices_dict = data.get("prices", {})
         asset_price = prices_dict.get(asset_address.lower()) or prices_dict.get(asset_address.upper()) or prices_dict.get(asset_address)
 
@@ -29,17 +31,17 @@ def get_asset_price(chain_id, asset_address):
             print(f"—> Real-time price: ${asset_price:.6f}")
             return float(asset_price)
         else:
-            print(f"Error: Price is not a valid number: {asset_price}", file=sys.stderr)
+            print(f"Error: Price is not a valid number: {asset_price}")
             return None
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Network error: {e}", file=sys.stderr)
+        print(f"❌ Network error: {e}")
         return None
     except ValueError as e:
-        print(f"❌ JSON parse error: {e}", file=sys.stderr)
+        print(f"❌ JSON parse error: {e}")
         return None
     except KeyError as e:
-        print(f"❌ Missing key in response: {e}", file=sys.stderr)
+        print(f"❌ Missing key in response: {e}")
         return None
 
 # === Email utility ===
