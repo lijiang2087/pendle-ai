@@ -6,7 +6,7 @@ from datetime import datetime
 
 # === CONFIG ===
 PT_ADDRESS = "0x77d8f09053c28faf1e00df6511b23125d438616f"
-MATURITY_DATE = datetime(2025, 6, 27)
+MATURITY_DATE = datetime(2025, 7, 16)
 
 # === Get Aave aUSDC yield from DeFiLlama ===
 def get_aave_usdc_yield():
