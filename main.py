@@ -12,8 +12,10 @@ MATURITY_DATE = datetime(2025, 6, 27)
 AAVE_USDC_YIELD = 0.065
 
 # === Fetch price from Pendle /assets/prices endpoint ===
-def get_asset_price(chain_id, asset_address):
-    url = f"https://api-v2.pendle.finance/core/v2/{chain_id}/assets/prices"
+def get_asset_price():
+    chain_id = "146"  # Sonic (in v1)
+    asset_address = "0x77d8f09053c28faf1e00df6511b23125d438616f"
+    url = f"https://api-v2.pendle.finance/core/v1/{chain_id}/assets/prices"
     params = {'addresses': asset_address}
     print(f"Fetching asset price from: {url} with params {params}")
 
@@ -21,19 +23,19 @@ def get_asset_price(chain_id, asset_address):
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
+        print("Full API response:", data)
 
-        print("Full API response:", data)  # 🔍 Debug print
-
-        prices_dict = data.get("prices", {})
-        asset_price = prices_dict.get(asset_address.lower()) or prices_dict.get(asset_address.upper()) or prices_dict.get(asset_address)
-
-        if isinstance(asset_price, (int, float)):
-            print(f"—> Real-time price: ${asset_price:.6f}")
-            return float(asset_price)
+        price = data.get(asset_address.lower())
+        if price:
+            print(f"✅ Real-time PT price: ${price:.6f}")
+            return float(price)
         else:
-            print(f"Error: Price is not a valid number: {asset_price}")
+            print("⚠️ Address not in API response.")
             return None
 
+    except Exception as e:
+        print(f"❌ Network/API error: {e}")
+        return None
     except requests.exceptions.RequestException as e:
         print(f"❌ Network error: {e}")
         return None
@@ -61,7 +63,7 @@ def send_email(subject, body, to_email):
 # === Main logic ===
 def main():
     print(f"Attempting to fetch price for PT Asset: {PT_ADDRESS} on Chain ID: {CHAIN_ID}")
-    pt_price = get_asset_price(CHAIN_ID, PT_ADDRESS)
+    pt_price = get_asset_price()
 
     if pt_price is None:
         send_email(
