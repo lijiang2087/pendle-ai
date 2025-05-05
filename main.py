@@ -15,7 +15,7 @@ AAVE_USDC_YIELD = 0.065
 def get_asset_price():
     chain_id = "146"  # Sonic (in v1)
     asset_address = "0x77d8f09053c28faf1e00df6511b23125d438616f"
-    url = f"https://api-v2.pendle.finance/core/v1/{chain_id}/assets/prices"
+    url = "https://api-v2.pendle.finance/core/v1/assets/prices"
     params = {'addresses': asset_address}
     print(f"Fetching asset price from: {url} with params {params}")
 
