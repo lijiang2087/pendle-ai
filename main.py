@@ -47,8 +47,15 @@ def send_email(subject, body, to_email):
 # === Main Logic ===
 def main():
     pt_price = get_pt_ausdc_price()
+    
     if pt_price is None:
-        print("Failed to fetch PT-aUSDC price.")
+        message = "⚠️ PT-aUSDC price not found in Pendle data.\n\nCheck API availability or symbol naming."
+        print(message)
+        send_email(
+            subject="Pendle PT-aUSDC Price Fetch Failed",
+            body=message,
+            to_email=os.getenv("EMAIL_USER")
+        )
         return
 
     days_to_maturity = (MATURITY_DATE - datetime.utcnow()).days
@@ -67,12 +74,11 @@ Days to maturity: {days_to_maturity}
 
 {"✅ Opportunity: BUY PT" if spread > 0.015 else "ℹ️ No strong arbitrage signal"}
 """
-
     print(message)
     send_email(
         subject="Pendle PT-aUSDC Yield Alert",
         body=message,
-        to_email=os.getenv("EMAIL_USER")  # Send to self
+        to_email=os.getenv("EMAIL_USER")
     )
 
 if __name__ == "__main__":
