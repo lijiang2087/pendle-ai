@@ -3,112 +3,46 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime
+import sys
 
 # === CONFIG ===
-PENDLE_POOL_URL = "https://yields.llama.fi/pools"
-AAVE_USDC_YIELD = 0.065  # Update this if needed
-MATURITY_DATE = datetime(2025, 1, 1)  # Update if PT changes
+PT_ADDRESS = "0x77d8f09053c28faf1e00df6511b23125d438616f"
+CHAIN_ID = "34443"  # Sonic
+MATURITY_DATE = datetime(2025, 6, 27)
+AAVE_USDC_YIELD = 0.065
 
-"""Fetches and prints the real-time price of a specific Pendle PT asset.
-
-This script queries the Pendle Finance API v1 /assets/prices endpoint
-to retrieve the current USD price for a predefined PT asset address on a specific chain.
-"""
-
-import requests
-import sys
-from typing import Union
-
-# --- Configuration ---
-CHAIN_ID = 146
-PT_ADDRESS = "0x77d8f09053c28faf1e00df6511b23125d438616f" # Pendle PT address for PT_USDC (Silo-20)
-API_BASE_URL = "https://api-v2.pendle.finance/core"
-REQUEST_TIMEOUT = 10 # Seconds
-# --- End Configuration ---
-
+# === Fetch price from Pendle /assets/prices endpoint ===
 def get_asset_price(chain_id, asset_address):
-    url = f"https://api-v2.pendle.finance/core/v2/{chain_id}/assets/prices?addresses={asset_address}"
-    print(f"Fetching asset price from: {url} with params {{'addresses': '{asset_address}'}}")
-    res = requests.get(url, timeout=10)
-    res.raise_for_status()
-    data = res.json()
-
-    if asset_address.lower() in data:
-        price = float(data[asset_address.lower()]["price"])
-        print(f"—> Real-time price: ${price:.6f}")
-        return price
-    else:
-        print("❌ Asset address not found in response.")
-        return None
-    
-"""Fetches the price of a given asset address using the /assets/prices endpoint.
-
-    Args:
-        chain_id: The chain ID for the network.
-        asset_address: The asset address to fetch the price for.
-
-    Returns:
-        The price of the asset as a float, or None if an error occurs.
-    """
-    url = f"{API_BASE_URL}/v1/{chain_id}/assets/prices"
-    params = {
-        'addresses': asset_address
-    }
+    url = f"https://api-v2.pendle.finance/core/v2/{chain_id}/assets/prices"
+    params = {'addresses': asset_address}
     print(f"Fetching asset price from: {url} with params {params}")
 
     try:
-        response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
-        response.raise_for_status() # Raises HTTPError for bad responses (4XX or 5XX)
-
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
         data = response.json()
 
-        # --- Price Extraction Logic ---
-        # Handles potential variations in address casing in the API response key.
-        asset_price = None
-        if 'prices' in data:
-            prices_dict = data['prices']
-            if asset_address.lower() in prices_dict:
-                asset_price = prices_dict[asset_address.lower()]
-            elif asset_address.upper() in prices_dict:
-                 asset_price = prices_dict[asset_address.upper()]
-            elif asset_address in prices_dict:
-                 asset_price = prices_dict[asset_address]
+        prices_dict = data.get("prices", {})
+        asset_price = prices_dict.get(asset_address.lower()) or prices_dict.get(asset_address.upper()) or prices_dict.get(asset_address)
 
-        if asset_price is None:
-            print(f"Error: Could not find price for address '{asset_address}' in the 'prices' dictionary.", file=sys.stderr)
-            # print("Response Data:", data) # Uncomment for debugging
-            return None
-
-        # Check if the extracted price is a valid number
         if isinstance(asset_price, (int, float)):
-             return float(asset_price)
+            print(f"—> Real-time price: ${asset_price:.6f}")
+            return float(asset_price)
         else:
-            print(f"Error: Price found for '{asset_address}' is not a valid number: {asset_price}", file=sys.stderr)
-            # print("Response Data:", data) # Uncomment for debugging
+            print(f"Error: Price is not a valid number: {asset_price}", file=sys.stderr)
             return None
-        # --- End Price Extraction Logic ---
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching data from Pendle API: {e}", file=sys.stderr)
+        print(f"❌ Network error: {e}", file=sys.stderr)
         return None
-    except ValueError as e: # Catches JSONDecodeError
-        print(f"Error parsing JSON response: {e}", file=sys.stderr)
+    except ValueError as e:
+        print(f"❌ JSON parse error: {e}", file=sys.stderr)
         return None
     except KeyError as e:
-        print(f"Error: Missing expected key '{e}' in API response structure.", file=sys.stderr)
+        print(f"❌ Missing key in response: {e}", file=sys.stderr)
         return None
 
-if __name__ == "__main__":
-    print(f"Attempting to fetch price for PT Asset: {PT_ADDRESS} on Chain ID: {CHAIN_ID}")
-    price = get_asset_price(CHAIN_ID, PT_ADDRESS)
-
-    if price is not None:
-        # Format price to 6 decimal places
-        print(f"---> Real-time price: ${price:.6f}")
-    else:
-        print("---> Failed to retrieve asset price.")
-
-# === Email logic ===
+# === Email utility ===
 def send_email(subject, body, to_email):
     from_email = os.getenv("EMAIL_USER")
     password = os.getenv("EMAIL_PASS")
@@ -121,21 +55,16 @@ def send_email(subject, body, to_email):
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(from_email, password)
         server.sendmail(from_email, [to_email], msg.as_string())
-        print("✅ Email sent successfully.")
 
-# === Main Logic ===
+# === Main logic ===
 def main():
-    pt_price = get_asset_price(
-    chain_id="34443",  # Sonic
-    asset_address="0x77d8f09053c28faf1e00df6511b23125d438616f"
-    )    
-    
+    print(f"Attempting to fetch price for PT Asset: {PT_ADDRESS} on Chain ID: {CHAIN_ID}")
+    pt_price = get_asset_price(CHAIN_ID, PT_ADDRESS)
+
     if pt_price is None:
-        message = "⚠️ PT-aUSDC price not found in Pendle data.\n\nCheck API availability or symbol naming."
-        print(message)
         send_email(
-            subject="Pendle PT-aUSDC Price Fetch Failed",
-            body=message,
+            subject="⚠️ Pendle PT Price Fetch Failed",
+            body="Could not retrieve price for PT-aUSDC on Sonic.",
             to_email=os.getenv("EMAIL_USER")
         )
         return
@@ -147,18 +76,20 @@ def main():
 
     message = f"""🟢 Pendle PT-aUSDC Yield Report
 
-Current PT-aUSDC price: ${pt_price:.4f}
-Implied annualized yield: {implied_yield:.2%}
-Aave yield: {AAVE_USDC_YIELD:.2%}
-Spread: {spread:.2%}
-Maturity date: {MATURITY_DATE.date()}
-Days to maturity: {days_to_maturity}
+✅ Chain: Sonic (ID: {CHAIN_ID})
+✅ PT Price: ${pt_price:.6f}
+✅ Implied Yield: {implied_yield:.2%}
+✅ Aave Benchmark: {AAVE_USDC_YIELD:.2%}
+✅ Spread: {spread:.2%}
+✅ Maturity: {MATURITY_DATE.date()}
+✅ Days Remaining: {days_to_maturity}
 
-{"✅ Opportunity: BUY PT" if spread > 0.015 else "ℹ️ No strong arbitrage signal"}
+{"🚀 BUY SIGNAL" if spread > 0.015 else "📊 No arbitrage signal"}
 """
+
     print(message)
     send_email(
-        subject="Pendle PT-aUSDC Yield Alert",
+        subject="📈 PT-aUSDC Yield Alert",
         body=message,
         to_email=os.getenv("EMAIL_USER")
     )
