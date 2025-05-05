@@ -34,6 +34,7 @@ def send_email(subject, body, to_email):
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(from_email, password)
         server.sendmail(from_email, [to_email], msg.as_string())
+        print("✅ Email sent successfully.")
 
 # === Main Logic ===
 def main():
