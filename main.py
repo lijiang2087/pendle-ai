@@ -9,35 +9,90 @@ PENDLE_POOL_URL = "https://yields.llama.fi/pools"
 AAVE_USDC_YIELD = 0.065  # Update this if needed
 MATURITY_DATE = datetime(2025, 1, 1)  # Update if PT changes
 
-# === Fetch PT-aUSDC price from DefiLlama ===
+"""Fetches and prints the real-time price of a specific Pendle PT asset.
+
+This script queries the Pendle Finance API v1 /assets/prices endpoint
+to retrieve the current USD price for a predefined PT asset address on a specific chain.
+"""
+
 import requests
+import sys
+from typing import Union
 
-def get_pt_ausdc_price():
+# --- Configuration ---
+CHAIN_ID = 146
+PT_ADDRESS = "0x77d8f09053c28faf1e00df6511b23125d438616f" # Pendle PT address for PT_USDC (Silo-20)
+API_BASE_URL = "https://api-v2.pendle.finance/core"
+REQUEST_TIMEOUT = 10 # Seconds
+# --- End Configuration ---
+
+def get_asset_price(chain_id: int, asset_address: str) -> Union[float, None]:
+    """Fetches the price of a given asset address using the /assets/prices endpoint.
+
+    Args:
+        chain_id: The chain ID for the network.
+        asset_address: The asset address to fetch the price for.
+
+    Returns:
+        The price of the asset as a float, or None if an error occurs.
+    """
+    url = f"{API_BASE_URL}/v1/{chain_id}/assets/prices"
+    params = {
+        'addresses': asset_address
+    }
+    print(f"Fetching asset price from: {url} with params {params}")
+
     try:
-        # Step 1: Get all assets
-        assets_response = requests.get("https://api-v2.pendle.finance/core/v3/1/assets/all")
-        assets_response.raise_for_status()
-        assets = assets_response.json()
+        response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status() # Raises HTTPError for bad responses (4XX or 5XX)
 
-        # Step 2: Find PT-aUSDC asset
-        pt_ausdc_asset = next((asset for asset in assets if "PT-aUSDC" in asset.get("name", "")), None)
-        if not pt_ausdc_asset:
-            print("PT-aUSDC asset not found.")
+        data = response.json()
+
+        # --- Price Extraction Logic ---
+        # Handles potential variations in address casing in the API response key.
+        asset_price = None
+        if 'prices' in data:
+            prices_dict = data['prices']
+            if asset_address.lower() in prices_dict:
+                asset_price = prices_dict[asset_address.lower()]
+            elif asset_address.upper() in prices_dict:
+                 asset_price = prices_dict[asset_address.upper()]
+            elif asset_address in prices_dict:
+                 asset_price = prices_dict[asset_address]
+
+        if asset_price is None:
+            print(f"Error: Could not find price for address '{asset_address}' in the 'prices' dictionary.", file=sys.stderr)
+            # print("Response Data:", data) # Uncomment for debugging
             return None
 
-        # Step 3: Get market data for PT-aUSDC
-        market_id = pt_ausdc_asset["market"]
-        market_data_response = requests.get(f"https://api-v2.pendle.finance/core/v2/1/markets/{market_id}/data")
-        market_data_response.raise_for_status()
-        market_data = market_data_response.json()
+        # Check if the extracted price is a valid number
+        if isinstance(asset_price, (int, float)):
+             return float(asset_price)
+        else:
+            print(f"Error: Price found for '{asset_address}' is not a valid number: {asset_price}", file=sys.stderr)
+            # print("Response Data:", data) # Uncomment for debugging
+            return None
+        # --- End Price Extraction Logic ---
 
-        # Extract the price
-        pt_price = market_data.get("ptPrice")
-        return pt_price
-
-    except Exception as e:
-        print(f"Error fetching PT-aUSDC price: {e}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data from Pendle API: {e}", file=sys.stderr)
         return None
+    except ValueError as e: # Catches JSONDecodeError
+        print(f"Error parsing JSON response: {e}", file=sys.stderr)
+        return None
+    except KeyError as e:
+        print(f"Error: Missing expected key '{e}' in API response structure.", file=sys.stderr)
+        return None
+
+if __name__ == "__main__":
+    print(f"Attempting to fetch price for PT Asset: {PT_ADDRESS} on Chain ID: {CHAIN_ID}")
+    price = get_asset_price(CHAIN_ID, PT_ADDRESS)
+
+    if price is not None:
+        # Format price to 6 decimal places
+        print(f"---> Real-time price: ${price:.6f}")
+    else:
+        print("---> Failed to retrieve asset price.")
 
 # === Email logic ===
 def send_email(subject, body, to_email):
