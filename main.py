@@ -111,7 +111,7 @@ def send_email(subject, body, to_email):
 
 # === Main Logic ===
 def main():
-    pt_price = get_pt_ausdc_price()
+    pt_price = get_asset_price()
     
     if pt_price is None:
         message = "⚠️ PT-aUSDC price not found in Pendle data.\n\nCheck API availability or symbol naming."
