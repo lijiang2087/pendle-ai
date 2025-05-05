@@ -26,8 +26,22 @@ API_BASE_URL = "https://api-v2.pendle.finance/core"
 REQUEST_TIMEOUT = 10 # Seconds
 # --- End Configuration ---
 
-def get_asset_price(chain_id: int, asset_address: str) -> Union[float, None]:
-    """Fetches the price of a given asset address using the /assets/prices endpoint.
+def get_asset_price(chain_id, asset_address):
+    url = f"https://api-v2.pendle.finance/core/v2/{chain_id}/assets/prices?addresses={asset_address}"
+    print(f"Fetching asset price from: {url} with params {{'addresses': '{asset_address}'}}")
+    res = requests.get(url, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if asset_address.lower() in data:
+        price = float(data[asset_address.lower()]["price"])
+        print(f"—> Real-time price: ${price:.6f}")
+        return price
+    else:
+        print("❌ Asset address not found in response.")
+        return None
+    
+"""Fetches the price of a given asset address using the /assets/prices endpoint.
 
     Args:
         chain_id: The chain ID for the network.
@@ -111,7 +125,10 @@ def send_email(subject, body, to_email):
 
 # === Main Logic ===
 def main():
-    pt_price = get_asset_price()
+    pt_price = get_asset_price(
+    chain_id="34443",  # Sonic
+    asset_address="0x77d8f09053c28faf1e00df6511b23125d438616f"
+    )    
     
     if pt_price is None:
         message = "⚠️ PT-aUSDC price not found in Pendle data.\n\nCheck API availability or symbol naming."
