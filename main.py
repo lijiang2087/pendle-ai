@@ -10,27 +10,33 @@ AAVE_USDC_YIELD = 0.065  # Update this if needed
 MATURITY_DATE = datetime(2025, 1, 1)  # Update if PT changes
 
 # === Fetch PT-aUSDC price from DefiLlama ===
+import requests
+
 def get_pt_ausdc_price():
     try:
-        res = requests.get(PENDLE_POOL_URL)
-        res.raise_for_status()
-        pools = res.json().get("data", [])
+        # Step 1: Get all assets
+        assets_response = requests.get("https://api-v2.pendle.finance/core/v3/1/assets/all")
+        assets_response.raise_for_status()
+        assets = assets_response.json()
 
-        print("🪙 All pool symbols from Pendle:")
-        for pool in pools:
-            print("-", pool.get("symbol"))
+        # Step 2: Find PT-aUSDC asset
+        pt_ausdc_asset = next((asset for asset in assets if "PT-aUSDC" in asset.get("name", "")), None)
+        if not pt_ausdc_asset:
+            print("PT-aUSDC asset not found.")
+            return None
 
-        for pool in pools:
-            project = pool.get("project", "").lower()
-            symbol = pool.get("symbol", "").lower()
-            if "pendle" in project and "pt" in symbol and "ausdc" in symbol:
-                return float(pool["underlyingTokens"][0]["price"])
+        # Step 3: Get market data for PT-aUSDC
+        market_id = pt_ausdc_asset["market"]
+        market_data_response = requests.get(f"https://api-v2.pendle.finance/core/v2/1/markets/{market_id}/data")
+        market_data_response.raise_for_status()
+        market_data = market_data_response.json()
 
-        print("⚠️ PT-aUSDC not found in pool data.")
-        return None
+        # Extract the price
+        pt_price = market_data.get("ptPrice")
+        return pt_price
 
     except Exception as e:
-        print(f"❌ Error fetching PT price: {e}")
+        print(f"Error fetching PT-aUSDC price: {e}")
         return None
 
 # === Email logic ===
